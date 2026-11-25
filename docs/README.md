@@ -1,7 +1,8 @@
 # UniStore documentation
 
 - [AI audit limitations](AI_AUDIT_LIMITATIONS.md): confirmed inspection scope, blind spots, naming policy, and verification requirements.
-- [Android roadmap](ANDROID_ROADMAP.md): phased plan for an Android edition independent of GTK, Yaru, GNOME, and Linux package-management backends at runtime.
-- [Package provider architecture](PACKAGE_PROVIDER_ARCHITECTURE.md): extensible provider model for Flatpak, Snap, APT/DEB, and Android APK, including source trust, capabilities, operation lifecycle, and security boundaries.
+- [Android roadmap](ANDROID_ROADMAP.md): phased Android plan using a universal catalog and target-specific deployment adapters.
+- [Universal catalog architecture](UNISTORE_UNIVERSAL_CATALOG.md): the broader UniStore vision covering applications, browser extensions, Construct add-ons, themes, tools, assets, and future digital-item domains.
+- [Package provider architecture](PACKAGE_PROVIDER_ARCHITECTURE.md): package-specific providers for Flatpak, Snap, APT/DEB, and Android APK.
 
-**Status:** documentation and architecture planning only. These documents do not certify a complete source-tree rebrand, provider implementation, or Android build.
+**Status:** documentation and architecture planning only. These documents do not certify a complete source-tree rebrand, provider/adapter implementation, or Android build.
