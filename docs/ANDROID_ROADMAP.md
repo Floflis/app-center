@@ -4,131 +4,150 @@
 
 Make UniStore a first-class Android application without depending on GTK, Yaru, GNOME Shell, Linux desktop services, or Ubuntu-only runtime facilities.
 
-The current repository is a Flutter/Dart workspace and its Snap packaging configuration explicitly builds the Linux target and includes GTK development packages. That proves the Linux distribution path has native desktop requirements; it does not prove that the Dart application itself is inseparable from GTK. The Android work must isolate shared application logic from platform-specific presentation and package-management backends.
+The current repository is a Flutter/Dart workspace and its Snap packaging configuration explicitly builds the Linux target and includes GTK development packages. That proves the Linux distribution path has native desktop requirements; it does not prove that the Dart application itself is inseparable from GTK. The Android work must isolate shared application logic from platform-specific presentation and deployment adapters.
+
+## Product architecture
+
+UniStore is a universal discovery, distribution, and management hub for typed digital items, not only an application/package manager. Its top-level catalog can include applications, browser extensions, Construct 2/3 add-ons, desktop themes, fonts, assets, developer tools, game content, and future domains.
+
+See [Universal catalog architecture](UNISTORE_UNIVERSAL_CATALOG.md) for the item model, domain adapters, target compatibility, trust model, and implementation strategy.
 
 ## Guiding architecture
 
-Separate the product into four layers:
+Separate the product into five layers:
 
-1. **Domain and catalog layer**: package metadata, app identity, versions, screenshots, descriptions, categories, ratings, and update state. No Flutter widgets or operating-system APIs.
-2. **Application services**: search, filtering, sorting, recommendations, install/update orchestration, downloads, and state management behind interfaces.
-3. **Platform adapters**: Android, Linux/Snap, and any future platforms implement the interfaces using native platform capabilities.
-4. **Presentation**: shared Flutter screens and design tokens, with platform-appropriate navigation, dialogs, accessibility, and interaction patterns.
+1. **Catalog and domain layer**: typed items, identities, artifacts, sources, publishers, licenses, provenance, and compatibility metadata.
+2. **Application orchestration**: search, collections, source management, install/update/configure workflows, policy decisions, and operation state.
+3. **Domain integrations**: package providers, browser extension sources, Construct add-on catalogs, theme catalogs, and other domain-specific integrations.
+4. **Target deployment adapters**: Android PackageInstaller, Linux package managers, browser-supported handoff/APIs, editor-specific deployment, and user-scoped theme/configuration deployment.
+5. **Presentation**: shared Flutter experience with item-specific detail pages and platform-appropriate navigation, dialogs, accessibility, and interaction patterns.
 
 Do not make Android emulate Linux desktop APIs. Keep GTK/Yaru imports and Linux-only dependencies behind Linux-specific adapters and conditional imports.
+
+## Package providers as one domain
+
+Flatpak, Snap, APT/DEB, and Android APK remain important, but they are one domain inside the larger catalog. See [Package provider architecture](PACKAGE_PROVIDER_ARCHITECTURE.md) for package-specific contracts, source trust, operations, and backend behavior.
+
+- Linux providers: Flatpak, Snap, and potentially APT/DEB.
+- Android provider: APK-based applications, installed through Android's PackageInstaller flow.
+- Catalog/source adapters remain separate from host installation mechanisms where their responsibilities differ.
+- Each provider advertises runtime capabilities; the UI must not expose unsupported actions.
+- Package identity remains provider-native and is not inferred from display names.
 
 ## Phase 0: repository and dependency audit
 
 - Clone the complete repository and enumerate every workspace package and package manifest.
 - Map the dependency graph, direct and transitive dependencies, Flutter plugins, generated code, and native source.
-- Search all Dart, YAML, Gradle, Kotlin, Java, C/C++, shell, desktop, Snap, and CI files for GTK, Yaru, GNOME, Ubuntu, PackageKit, Snap, D-Bus, and desktop-only APIs.
+- Search all Dart, YAML, Gradle, Kotlin, Java, C/C++, shell, desktop, Snap, and CI files for GTK, Yaru, GNOME, Ubuntu, PackageKit, Snap, Flatpak, APT, D-Bus, browser, extension, and theme integrations.
 - Classify each dependency as shared, Linux-only, Android-compatible, replaceable, or unsupported.
 - Inspect the upstream project and the fork's divergence before porting or deleting code.
 - Record exact Flutter, Dart, Java, Gradle, Android Gradle Plugin, Kotlin, Android SDK, and NDK requirements.
 
-**Exit criteria:** a reviewed package/dependency matrix and a platform integration map. No dependency is removed merely because its name looks desktop-specific.
+**Exit criteria:** a reviewed package/dependency matrix and a platform integration map.
 
-## Phase 1: Android application skeleton
+## Phase 1: universal catalog contracts
 
-- Add/enable the Flutter Android platform directory and Gradle configuration if it is absent.
+- Define CatalogItem, ItemKind, Artifact, Target, Source, Publisher, License, CompatibilityResult, and Provenance.
+- Keep package-specific models under the application/package domain.
+- Define domain-specific metadata extensions without forcing every item into package fields.
+- Define provider and deployment-adapter registries separately.
+- Add typed capabilities, operation states, cancellation semantics, and typed errors.
+- Preserve provider-native identity and source attribution.
+- Add schema versioning and migration rules for cached catalog data.
+
+**Exit criteria:** catalog and deployment contracts pass unit tests with fake providers and adapters; no native backend is required.
+
+## Phase 2: Android application skeleton and UI
+
+- Add/enable the Flutter Android platform directory and Gradle configuration if absent.
 - Define Android application ID, namespace, versioning, minimum SDK, target SDK, signing configuration, and release flavors.
 - Keep signing secrets outside the repository and inject them through CI secrets or local environment configuration.
 - Configure app icon, adaptive icon, splash screen, display name, theme, status/navigation bars, and edge-to-edge behavior.
-- Add Android-specific launcher metadata and required manifest declarations.
-- Verify debug and release builds on a clean CI runner.
+- Build responsive discovery, search, collections, and item-detail experiences.
+- Show only item domains and actions supported on Android; do not surface Linux-only theme or package deployment actions as installable Android features.
+- Use mobile navigation, back handling, safe areas, keyboard-aware forms, and accessible touch targets.
 
-**Exit criteria:** an installable Android APK/AAB that launches into a placeholder UniStore screen without loading GTK/Yaru or Linux native libraries.
+**Exit criteria:** an installable Android APK/AAB launches without GTK/Yaru or Linux native libraries and can render mock catalog items from multiple domains.
 
-## Phase 2: remove desktop-only UI coupling
+## Phase 3: domain and source integrations
 
-- Find Yaru widgets, theme extensions, icon packages, GTK bindings, and GNOME-specific components.
-- Replace desktop-only widgets with Flutter Material 3 or a platform-neutral UniStore component library.
-- Preserve a consistent UniStore visual identity through shared color, typography, spacing, shape, and icon tokens rather than copying the Ubuntu/Yaru theme.
-- Use responsive layouts: compact phone, expanded phone/foldable, and tablet.
-- Replace desktop window assumptions with mobile navigation, back handling, safe areas, keyboard-aware forms, and touch targets.
-- Add screen-reader semantics, scalable text, contrast checks, and reduced-motion considerations.
-- Keep Linux-specific widgets in Linux-only packages or conditional imports.
+- Implement catalog/source adapters independently from target deployment.
+- Start with documented Android-compatible application sources, such as curated F-Droid-compatible repositories or a first-party catalog.
+- Prototype browser-extension discovery with official store handoff; direct installation is only allowed through supported browser APIs and policies.
+- Add Construct 2 and Construct 3 as distinct catalog targets with editor-specific metadata and compatibility.
+- Add theme catalogs for GTK, Metacity, icon/cursor themes, and Omarchy as Linux targets.
+- Record publisher, license, source provenance, target version, artifact checksums/signatures, and requested permissions.
+- Never treat arbitrary URLs or archives as trusted repositories.
 
-**Exit criteria:** Android dependency resolution and compilation do not include GTK/Yaru libraries, and core screens render correctly on phone and tablet sizes.
+**Exit criteria:** the catalog can display typed items from multiple domains with clear compatibility, provenance, and installation-method labels.
 
-## Phase 3: package source and repository backend
+## Phase 4: target deployment adapters
 
-This is the largest product decision. The Linux App Center's Snap/PackageKit integration cannot simply be called from Android.
+- Android applications: use Android PackageInstaller with required user confirmation and signature checks.
+- Linux applications: use independent Flatpak, Snap, and potentially APT/DEB package providers.
+- Browser extensions: use official browser-supported APIs or verified store handoff; never bypass browser security or policy.
+- Construct add-ons: deploy only through verified editor-supported paths; keep Construct 2 and Construct 3 compatibility separate.
+- GTK/Metacity/Omarchy themes: validate archives, deploy user-scoped by default, back up current configuration, and provide revert where possible.
+- Other domains: add a deployment adapter only after defining target compatibility, validation, permissions, and recovery.
 
-- Define a backend-neutral repository API for catalog search, package details, screenshots, categories, versions, changelogs, and update metadata.
-- Define package-source types explicitly. A Snap source is not an Android package source.
-- Select Android-compatible sources, such as curated F-Droid-compatible repositories, a first-party catalog, or another legally and operationally suitable repository format.
-- Implement repository index parsing, signature verification, trust roots, freshness checks, and safe error handling.
-- Show source provenance, signing identity, permissions, version, architecture, and compatibility before installation.
-- Support repository add/remove/enable/disable with clear trust prompts.
-- Never treat an arbitrary APK URL as a trusted repository.
+**Exit criteria:** each advertised integrated deployment path passes target-specific tests. Discovery-only/manual paths are labeled honestly.
 
-**Exit criteria:** UniStore can display a useful Android catalog from a documented, verifiable repository source without Snap Store or PackageKit.
+## Phase 5: Android installation and lifecycle
 
-## Phase 4: installation and update model
+Android intentionally restricts silent installation by ordinary applications.
 
-Android intentionally restricts silent installation by ordinary applications. Design around those platform rules.
-
-- Use Android's package installation flow (for example, PackageInstaller) where appropriate and permitted.
-- Present the system confirmation UI when required. Do not promise silent installs or unrestricted updates.
-- Handle unknown-source install permission as a user-controlled Android setting, with an explanation and a return-to-app flow.
-- Validate APK signatures, package names, version codes, SDK compatibility, ABI, and split APK requirements before install.
+- Present system confirmation UI when required; do not promise silent installs.
+- Handle unknown-source install permission as a user-controlled setting.
+- Validate APK signatures, package names, version codes, SDK compatibility, ABI, and split APK requirements.
 - Handle install sessions, cancellation, progress, failure reasons, and post-install verification.
-- Determine whether updates can be applied by the same signing identity and package ownership.
-- Explain that apps installed by Google Play or another store may not be updateable by UniStore if signing identities differ.
-- Treat uninstall, downgrade, and permission changes as separate privileged/user-mediated operations.
-- Do not request device-owner privileges or accessibility-service access as a workaround for ordinary store limitations.
+- Respect Android package visibility, scoped storage, WorkManager, Doze, notification permissions, and lifecycle constraints.
+- Never request device-owner privileges or accessibility-service access as a workaround for ordinary store limitations.
 
-**Exit criteria:** a tested, user-mediated install/update path with accurate reporting of Android restrictions and signature conflicts.
+**Exit criteria:** tested user-mediated installation and Android lifecycle behavior on supported API levels.
 
-## Phase 5: Android-specific capabilities
+## Phase 6: Linux provider implementation
 
-- App details: deep links to Android app details/settings where useful.
-- Installed-app inventory: use supported PackageManager visibility APIs and declare only justified package visibility queries.
-- Downloads: use app-private storage, resumable downloads where appropriate, checksum verification, and clear cleanup policies.
-- Background work: use WorkManager for deferrable work and respect Doze, battery optimization, and network constraints.
-- Notifications: request notification permission where applicable and keep update notifications opt-in and meaningful.
-- Network: handle offline mode, captive portals, metered networks, TLS failures, and repository timeouts.
-- Storage: avoid broad storage permissions; use scoped storage and system pickers when user-selected files are needed.
-- Security: validate metadata, sanitize rendered text/HTML, prevent path traversal, and never execute downloaded content.
-- Privacy: disclose telemetry, minimize data collection, and provide a clear policy.
+- Wrap the existing Snap integration behind a provider without changing established behavior.
+- Add Flatpak as an independent provider, with explicit detection of backend availability and configured remotes.
+- Evaluate APT/DEB separately, including dependency resolution, privilege handling, and system package policy.
+- Add GTK/Metacity/Omarchy theme deployment as a separate domain adapter, not as a package-manager provider.
+- Keep PackageKit optional and provider-specific; its presence must not imply Flatpak support.
+- Ensure one missing backend does not disable unrelated domains or providers.
 
-**Exit criteria:** Android lifecycle, permissions, networking, storage, and background behavior are tested on supported API levels.
+**Exit criteria:** each implemented provider/adapter passes its contract and integration tests independently.
 
-## Phase 6: tests and release quality
+## Phase 7: security, tests, and release quality
 
-- Unit-test repository parsing, signature/trust validation, version comparison, compatibility checks, and install-state transitions.
-- Add widget/golden tests for compact and expanded layouts.
-- Add integration tests for search, details, source management, download, install handoff, cancellation, and update checks.
-- Test API-level boundaries, at least one older supported Android version, current Android, and multiple ABIs where relevant.
-- Test clean install, upgrade, interrupted download, low storage, offline state, revoked/invalid signatures, and conflicting package signatures.
-- Add CI jobs for formatting, static analysis, tests, APK build, and AAB build.
-- Publish reproducible build metadata and release checksums.
-- Complete privacy, security, licensing, and repository-policy reviews before public release.
+- Validate source metadata and artifact signatures/checksums where available.
+- Reject path traversal, symlink escapes, decompression bombs, and writes outside the target.
+- Do not execute install scripts by default; require explicit consent for executable add-ons and scripts.
+- Back up user profiles/configuration before modifications and test restore/revert.
+- Test malformed, incompatible, revoked, interrupted, and malicious artifacts.
+- Add provider/adapter contract tests, unit tests, widget tests, integration tests, static analysis, APK/AAB builds, and Linux CI.
+- Complete privacy, security, licensing, and repository-policy reviews before release.
 
-**Exit criteria:** CI produces installable release artifacts and the documented test matrix passes.
-
-## Phase 7: Linux and Android coexistence
-
-- Keep Linux/Snap as a platform adapter rather than deleting the existing distribution path.
-- Retain GTK/Yaru dependencies only in the Linux-specific build graph.
-- Keep Snap, PackageKit, D-Bus, desktop-entry, and Ubuntu-driver integration out of Android build targets.
-- Share catalog/domain logic only where semantics genuinely match.
-- Use platform capability interfaces and explicit unsupported-operation states.
-- Document platform feature parity; do not imply that Android can install Snap packages.
+**Exit criteria:** documented test matrices pass and each domain's support level is accurately represented.
 
 ## Suggested package boundaries
 
-Names below are architectural proposals, not claims that these packages already exist:
+These are conceptual names, not claims that packages already exist:
 
-- `unistore_domain`: entities, value objects, repository contracts, and use cases.
-- `unistore_catalog`: source abstractions, metadata models, search, and catalog caching.
-- `unistore_ui`: shared Flutter components and design tokens.
-- `unistore_android`: Android repository adapters and PackageInstaller integration.
-- `unistore_linux`: Snap/PackageKit/D-Bus/desktop adapters and Yaru/GTK-specific code.
+- `unistore_domain`: universal catalog models, identity, compatibility, provenance.
+- `unistore_application`: orchestration, policy, registries, and use cases.
+- `unistore_catalog`: source adapters, indexing, search, and caching.
+- `unistore_ui`: shared Flutter presentation.
+- `unistore_domain_packages`: package-specific models and contracts.
+- `unistore_provider_flatpak`, `unistore_provider_snap`, `unistore_provider_apt`.
+- `unistore_provider_android_apk`.
+- `unistore_domain_browser_extensions` and browser-specific adapters.
+- `unistore_domain_construct_addons` with separate Construct 2 and Construct 3 targets.
+- `unistore_domain_themes` with GTK, Metacity, Omarchy, and future theme adapters.
+- `unistore_platform_linux`, `unistore_platform_android`.
 
-Avoid splitting into many packages until the current workspace inventory shows a clear boundary and dependency direction.
+Do not create every package at once. Extract boundaries from the real workspace incrementally.
 
 ## Key architectural rule
 
-The shared application layer must depend on UniStore interfaces, not on GTK, Yaru, Snap, PackageKit, D-Bus, or Android framework classes. Platform implementations depend inward on those interfaces. This keeps the Android app independent of Linux desktop technology without breaking the Linux edition.
+The universal catalog describes **what an item is**. Domain integrations describe **where it comes from and what it means**. Target deployment adapters describe **how it can be safely applied**. The UI orchestrates these contracts without embedding ecosystem-specific behavior.
+
+This keeps Android independent of Linux desktop technology while allowing UniStore to grow far beyond traditional application packages.
