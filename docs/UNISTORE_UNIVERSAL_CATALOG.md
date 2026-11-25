@@ -243,6 +243,51 @@ Do not conflate them. Installing a browser extension must not install a UniStore
 
 A future third-party provider SDK would require its own signing, sandbox, permission, API compatibility, review, revocation, and update model. It is not required to achieve a broad catalog.
 
+
+## Games, storefront commerce, and ImpossibleEngine
+
+Games are first-class catalog products, not merely files attached to an application listing. UniStore should host a storefront for games produced with ImpossibleEngine and other compatible creators.
+
+A game listing may include title, description, developer/publisher, genres, supported platforms, requirements, languages, accessibility details, release history, capsule/cover art, screenshots, trailers, and a collectible **cartridge-cover presentation**. Cartridge artwork is a visual product identity, not a promise to manufacture or ship physical cartridges. Builds, demos, patches, DLC, manuals, soundtracks, and bonus content are separately typed artifacts/items with platform targets, versions, hashes, signatures, and provenance.
+
+Keep these records distinct: **Catalog listing** (descriptive information), **Offer** (price, currency, seller, region, terms), **Order/transaction** (payment provider result), **Entitlement/license** (access rights and scope), **Artifact** (actual build/content), and **Installation** (deployment to a compatible target). Payment success does not prove artifact safety; possession of an artifact does not prove purchase entitlement. Verify transaction state with the commerce provider and artifact integrity/authenticity independently. Do not store payment-card data or invent refund guarantees, DRM behavior, offline rights, or perpetual ownership. Start with a sandbox/test commerce flow before real payments.
+
+ImpossibleEngine should eventually publish signed release manifests and platform builds into UniStore using stable game/product identifiers. The engine must not depend on the Flutter UI. A creator publishing workflow can be a later slice.
+
+## Fonts, drivers, widgets, and system-level items
+
+The catalog explicitly includes fonts, drivers, desktop widgets, terminal themes, wallpapers, IDEs, snippets, creative plugins, brushes, presets, game mods, maps, and resource packs. Each retains its own target, compatibility, permission, validation, deployment, and recovery rules.
+
+- Fonts and wallpapers are user assets but still require format validation and license/provenance display.
+- Widgets may execute code or access session data; model permissions, host compatibility, lifecycle, and isolation.
+- Drivers are a high-risk privileged domain. Require exact OS/kernel/architecture/device matching, signature verification, Secure Boot awareness, explicit elevation, recovery guidance, and conservative official-source preference. Never offer a generic driver installer or silently replace a working driver.
+- IDEs are applications; IDE extensions, snippets, and toolchains are distinct item kinds and targets.
+- Mods, maps, and resource packs must identify the exact game, edition, version, loader/runtime, and deployment scope.
+
+## UniStore CLI as the canonical backend
+
+The `unistore` command-line application is the canonical backend. Flutter is a presentation/client layer and delegates catalog, source, provider, artifact, operation, and policy work to this backend rather than reimplementing it in Dart UI code.
+
+Intended dependency direction:
+
+`Flutter UI → platform bridge / client transport → UniStore CLI backend → domain services, providers, Iroh, and host integrations`
+
+The CLI owns domain logic, provider registry, source configuration, catalog queries, compatibility decisions, artifact verification, operation orchestration, persistent state, and structured diagnostics. Flutter owns presentation, navigation, accessibility, interaction, and rendering backend-reported state. A platform bridge exposes a stable, versioned structured protocol with typed errors. Do not parse human-readable terminal output or construct shell commands from catalog/user input.
+
+The CLI must be independently useful for automation, scripting, diagnostics, and headless workflows. Long-running operations need stable operation IDs, structured progress/events, safe cancellation where supported, and recoverable state. Desktop may launch a backend process. Android must have a feasibility spike for packaging/invoking the same backend logic inside the app sandbox, such as native library/FFI or a managed embedded service. Do not assume Android can execute an arbitrary external binary. Platform transports may differ while protocol semantics and backend ownership remain consistent. Flutter must report backend absence, version mismatch, startup failure, and unsupported capabilities explicitly, never silently fall back to duplicate Dart business logic.
+
+## Iroh artifact transport
+
+Integrate [Iroh](https://iroh.computer/) as an optional transport for selected artifacts: large game builds, DLC, asset libraries, mods, maps, resource packs, and creator content where peer-to-peer delivery is useful. Iroh is a **transport**, not the catalog authority, payment processor, entitlement system, package manager, or trust root.
+
+Expected flow: resolve item/version from a trusted catalog; obtain an authenticated manifest with stable identity, version, size, hashes, target compatibility, and publisher provenance; check entitlement when relevant; select Iroh or an authorized HTTPS/ecosystem-native fallback; transfer into staging with bounded resource use and observable progress; verify hashes/signatures; validate archive contents; then hand the verified artifact to its target-specific deployment adapter.
+
+Iroh addresses/tickets and successful transfers locate/deliver content but do not prove publisher identity, authenticity, or entitlement. Keep stable content identity separate from transient transfer coordinates. Never deploy from an unverified stream. Keep Iroh behind a transport interface; protect private tickets/endpoints in logs; enforce quotas, size limits, staging cleanup, and malicious-archive defenses. Do not require Iroh for every item.
+
+## Updated architectural direction
+
+UniStore has three complementary axes: (1) the **universal catalog**, describing the item, publisher, commercial/access terms, and targets; (2) the **UniStore CLI backend**, the canonical engine coordinating policy, providers, operations, verification, and transports; and (3) **domain/platform adapters**, defining how an item is discovered, transferred, installed, enabled, purchased, or removed. Flutter is a backend client. Iroh is one optional artifact transport. Neither replaces the catalog or target-specific security model.
+
 ## Implementation strategy
 
 Build the universal model incrementally; do not attempt every ecosystem at once.
